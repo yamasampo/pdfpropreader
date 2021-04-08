@@ -4,10 +4,10 @@ from collections import namedtuple
 
 PDFinfo = namedtuple(
     'PDFinfo', 
-    ['file_path', 'properties']
+    ['file_path', 'properties', 'annotations']
 )
 
-def main(input_pdf_file, output_txt_file):
+def main(input_pdf_file, output_txt_file, include_annotations=True):
     """ Extracts properties of PDF file contents and outputs the extracted 
     properties to a text file. 
 
@@ -27,7 +27,7 @@ def main(input_pdf_file, output_txt_file):
 
     """
     check_output_file_not_exist(output_txt_file)
-    pdf_info = read_pdf_file(input_pdf_file)
+    pdf_info = read_pdf_file(input_pdf_file, include_annotations)
     save_as_file(pdf_info, output_txt_file)
 
     return pdf_info
@@ -38,7 +38,7 @@ def check_output_file_not_exist(output_txt_file):
     if os.path.isfile(output_txt_file):
         raise FileExistsError(f'Output file "{output_txt_file}" already exists.')
 
-def read_pdf_file(file_path):
+def read_pdf_file(file_path, include_annotations=True):
     """ Returns contents of a given PDF file as a Python string object. 
     
     Parameter
@@ -78,20 +78,51 @@ def read_pdf_file(file_path):
         # the program reads other fields like "ModDate" and "WPS-ARTICLEDOI". 
         # There may be a full list of fields internally.
 
-    return PDFinfo(file_path, info)
+        # Get annotation text
+        if include_annotations:
+            page_num = pdf.getNumPages()
+            annotations = []
+            keys = ['/Type', '/Subtype', '/CreationDate']
+
+            for i in range(page_num):
+                page = pdf.getPage(i)
+                if '/Annots' in page:
+                    for annot in page['/Annots']:
+                        obj = annot.getObject()
+                        if 'text' in obj['/Subtype'].lower():
+                            annotations.append(
+                                {k: obj[k] for k in keys + ['/Contents']}
+                            )
+                        else:
+                            annotations.append(
+                                {k: obj[k] for k in keys}
+                            )
+        else:
+            annotations = []
+
+    return PDFinfo(file_path, info, annotations)
 
 def save_as_file(pdf_info, output_txt_file):
     """ Output PDF property as a plain text file. """
-    key_formatter = lambda s: s.split('/')[-1]
-    output_lines = [
-        '{} = {}'.format(key_formatter(k), v)
+    property_lines = [
+        f'{k} = {v}'
         for k, v in pdf_info.properties.items()
     ]
+    annotation_lines = [
+        f'\nAnnotation {n}:\n' +
+        '\n'.join([f'{k} = {v}'for k, v in annot.items()])
+        for n, annot in enumerate(pdf_info.annotations, 1)
+    ]
+
+    output_lines = \
+        'property_num: {}\n'.format(len(property_lines)) + \
+        '\n'.join(property_lines) + \
+        '\n\nannotation_num: {}\n'.format(len(pdf_info.annotations)) + \
+        '\n'.join(annotation_lines)
 
     with open(output_txt_file, 'w') as f:
-        print('PDF_file_path = {}'.format(pdf_info.file_path), file=f)
-        print('field_num: {}'.format(len(output_lines)), file=f)
-        print('\n'.join(output_lines), file=f)
+        print('PDF_file_path = {}\n'.format(pdf_info.file_path), file=f)
+        print(output_lines, file=f)
 
     return output_txt_file
 
@@ -114,5 +145,15 @@ if __name__ == '__main__':
         "output_txt_file", 
         help="A path to an output file."
     )
+    parser.add_argument(
+        "-a", "--include_annotations", 
+        help='Include annotation text in an output file if the flag '\
+             '"-a" or "--include_annotations" is called.', 
+        action="store_true"
+    )
+
     args = parser.parse_args()
-    main(args.input_input_pdf_file, args.output_txt_file)
+    main(
+        args.input_input_pdf_file, args.output_txt_file, 
+        args.include_annotations
+    )
