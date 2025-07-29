@@ -126,19 +126,19 @@ def save_as_file(pdf_info, output_txt_file):
 
     return output_txt_file
 
-def extract_property(contents, fields):
-    """ Returns PDF property for given fields by reading through the entire 
-    contents. Currently, this function is not used. PDF property is extracted
-    by functions in PyPDF2 package.
-    """
-    pass
+# def extract_property(contents, fields):
+#     """ Returns PDF property for given fields by reading through the entire 
+#     contents. Currently, this function is not used. PDF property is extracted
+#     by functions in PyPDF2 package.
+#     """
+#     pass
 
 if __name__ == '__main__':
     import argparse
     desc = 'pdfpropreader: Extract properties of a PDF file content.'
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument(
-        "input_input_pdf_file", 
+        "input_pdf_file", 
         help="A path to an input PDF file"
     )
     parser.add_argument(
